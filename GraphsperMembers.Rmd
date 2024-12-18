@@ -1,0 +1,634 @@
+---
+title: "Graphs"
+output: html_document
+date: "2024-04-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+mem_data <- read.csv("C:/Users/Neel/Desktop/2023-2024/Spring 2024/Capstone/mem_data_eventbenefitscorecard.csv")
+library(dplyr)
+library(ggplot2)
+since_2018 <- mem_data %>% filter(Join_Date_Months >= 24216)
+since_2018 <- since_2018 %>% distinct(Company, Month, .keep_all = TRUE)
+since_2018 <- since_2018 %>% filter(Member_Status == 1)
+only1year <- since_2018 %>% filter(Paid_Through_Months - Join_Date_Months == 12)
+only2year <- since_2018 %>% filter(Paid_Through_Months - Join_Date_Months == 24)
+morethan2year <- since_2018 %>% filter(Paid_Through_Months - Join_Date_Months > 24)
+```
+
+```{r}
+features <- c("Event_Participation", "SC.BusinessDevelopment", "SC.Outreach",
+              "SC.Visibility", "SC.Talent", "SC.Advocacy", "SC.Benefits", "SC.General")
+
+calculate_percentage <- function(feature, dataset) {
+  # Assuming your dataset has a column named 'feature' containing numeric values
+  sum(dataset[[feature]], na.rm = TRUE) / nrow(dataset) * 100
+}
+
+
+percentages.year1 <- sapply(features, function(feature) {
+  calculate_percentage(feature, only1year) / n_distinct(only1year$Company)
+})
+
+# Similarly, calculate percentages for the other subsets
+percentages.year2 <- sapply(features, function(feature) {
+  calculate_percentage(feature, only2year) / n_distinct(only2year$Company)
+})
+
+percentages.morethan2year <- sapply(features, function(feature) {
+  calculate_percentage(feature, morethan2year) / n_distinct(morethan2year$Company)
+})
+
+```
+Only 1 Year members
+```{r}
+plot_data <- data.frame(Feature = features, Percentage = percentages.year1)
+
+# Plot the graph
+ggplot(plot_data, aes(x = Feature, y = Percentage)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Percentage of Features for Only 1 Year", x = "Feature", y = "Percentage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+Only 2 year
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# Assuming you have calculated percentages for only2year and stored them in percentages.year2
+
+# Extract the first twelve rows per company
+first_year <- only2year %>%
+  group_by(Company) %>%
+  slice(1:12) %>%
+  ungroup()
+
+# Extract the last twelve rows per company
+last_year <- only2year %>%
+  group_by(Company) %>%
+  slice((n() - 11):n()) %>%
+  ungroup()
+
+# Calculate percentages for each group
+percentages.first_year <- sapply(features, function(feature) {
+  calculate_percentage(feature, first_year) / n_distinct(first_year$Company)
+})
+
+percentages.last_year <- sapply(features, function(feature) {
+  calculate_percentage(feature, last_year) / n_distinct(last_year$Company)
+})
+
+# Combine percentages into a single data frame
+plot_data <- data.frame(
+  Feature = rep(features, 2),
+  Percentage = c(percentages.first_year, percentages.last_year),
+  Year = rep(c("First Year", "Last Year"), each = length(features))
+)
+
+# Bar Graph
+ggplot(plot_data, aes(x = Feature, y = Percentage, fill = Year)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  labs(title = "Comparison of First Year and Last Year", x = "Feature", y = "Percentage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Combine percentages into a single data frame
+plot_data_year_comparison <- data.frame(
+  Feature = rep(features, 2),
+  Percentage = c(percentages.first_year, percentages.last_year),
+  Year = rep(c("First Year", "Last Year"), each = length(features))
+)
+
+# Bar Graph for year comparison
+ggplot(plot_data_year_comparison, aes(x = Feature, y = Percentage, fill = Year)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  labs(title = "Comparison of First Year and Last Year", x = "Feature", y = "Percentage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Data Points
+ggplot(plot_data, aes(x = Feature, y = Percentage, color = Year)) +
+  geom_point(position = position_dodge(width = 0.5), size = 3) +
+  labs(title = "Comparison of First Year and Last Year", x = "Feature", y = "Percentage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+Members for more than 2 years
+```{r}
+# Extract the last twelve rows per company
+last_year_more_than_2 <- morethan2year %>%
+  group_by(Company) %>%
+  slice((n() - 11):n()) %>%
+  ungroup()
+
+# Extract all years except the last year per company
+not_last_year_more_than_2 <- morethan2year %>%
+  group_by(Company) %>%
+  slice(1:(n() - 12)) %>%
+  ungroup()
+
+# Calculate percentages for each group
+percentages.last_year_more_than_2 <- sapply(features, function(feature) {
+  calculate_percentage(feature, last_year_more_than_2) / n_distinct(last_year_more_than_2$Company)
+})
+
+percentages.not_last_year_more_than_2 <- sapply(features, function(feature) {
+  calculate_percentage(feature, not_last_year_more_than_2) / n_distinct(not_last_year_more_than_2$Company)
+})
+
+# Combine percentages into a single data frame
+plot_data_more_than_2 <- data.frame(
+  Feature = rep(features, 2),
+  Percentage = c(percentages.last_year_more_than_2, percentages.not_last_year_more_than_2),
+  Year = rep(c("Last Year", "Not Last Year"), each = length(features))
+)
+
+# Plot the graph
+ggplot(plot_data_more_than_2, aes(x = Feature, y = Percentage, color = Year)) +
+  geom_point(position = position_dodge(width = 0.5), size = 3) +
+  labs(title = "Comparison of Last Year and Not Last Year for More than 2 Years", x = "Feature", y = "Percentage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Combine percentages into a single data frame
+plot_data_more_than_2 <- data.frame(
+  Feature = rep(features, 2),
+  Percentage = c(percentages.not_last_year_more_than_2, percentages.last_year_more_than_2),
+  Year = rep(c("Not Last Year", "Last Year"), each = length(features))
+)
+
+# Plot the graph
+ggplot(plot_data_more_than_2, aes(x = Feature, y = Percentage, fill = Year)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  labs(title = "Comparison of Last Year and Not Last Year for More than 2 Years", x = "Feature", y = "Percentage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+Members for more than 2 years (looking at their last 2 years)
+```{r}
+# Extract the second to last twelve rows per company
+second_to_last_year_more_than_2 <- morethan2year %>%
+  group_by(Company) %>%
+  slice((n() - 23):(n() - 12)) %>%
+  ungroup()
+
+# Calculate percentages for each group
+percentages.second_to_last_year_more_than_2 <- sapply(features, function(feature) {
+  calculate_percentage(feature, second_to_last_year_more_than_2) / n_distinct(second_to_last_year_more_than_2$Company)
+})
+
+# Combine percentages into a single data frame
+plot_data_more_than_2 <- data.frame(
+  Feature = rep(features, 2),
+  Percentage = c(percentages.second_to_last_year_more_than_2, percentages.last_year_more_than_2),
+  Year = rep(c("Second to Last Year", "Last Year"), each = length(features))
+)
+
+# Plot the graph
+ggplot(plot_data_more_than_2, aes(x = Feature, y = Percentage, fill = Year)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  labs(title = "Comparison of Last Year and Second to Last Year for Members of >2 Years", x = "Feature", y = "Percentage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+# Function to calculate the percentage of a feature
+calculate_percentage <- function(feature, dataset, years) {
+  sum(dataset[[feature]], na.rm = TRUE) / (n_distinct(dataset$Company) * years) * 100
+}
+
+# Function to filter 3-year members
+filter_3year_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 36 & Paid_Through_Months - Join_Date_Months <= 60)
+}
+
+# Function to filter 5-year members
+filter_5year_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 60)
+}
+
+# Calculate percentages for 1-year members
+percentages_1year <- sapply(features, function(feature) {
+  calculate_percentage(feature, only1year, 1)
+})
+
+# Filter long-term members
+long_term_3years <- filter_3year_members(since_2018)
+long_term_5years <- filter_5year_members(since_2018)
+
+# Calculate percentages for 3-year members
+percentages_3years <- sapply(features, function(feature) {
+  calculate_percentage(feature, long_term_3years, 3)
+})
+
+# Calculate percentages for 5-year members
+percentages_5years <- sapply(features, function(feature) {
+  calculate_percentage(feature, long_term_5years, 5)
+})
+
+# Combine percentages into a data frame
+comparison_data <- data.frame(
+  Feature = features,
+  Percentage_1year = percentages_1year,
+  Percentage_3years = percentages_3years,
+  Percentage_5years = percentages_5years
+)
+
+# Reshape data for plotting
+comparison_data_long <- pivot_longer(comparison_data, cols = c(Percentage_1year, Percentage_3years, Percentage_5years),
+                                     names_to = "Membership_Years", values_to = "Percentage")
+
+# Plot
+ggplot(comparison_data_long, aes(x = Feature, y = Percentage, fill = Membership_Years)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Comparison of Membership Duration",
+       x = "Feature", y = "Percentage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+```{r}
+# Function to calculate the average usage of a feature for a given dataset
+calculate_average_usage <- function(feature, dataset) {
+  sum(dataset[[feature]], na.rm = TRUE) / n_distinct(dataset$Company)
+}
+
+# Function to filter members by membership duration (in months)
+filter_members_by_duration <- function(dataset, min_duration, max_duration) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > min_duration & 
+           Paid_Through_Months - Join_Date_Months <= max_duration)
+}
+
+# Calculate average feature usage for 1-year members
+average_usage_1year <- sapply(features, function(feature) {
+  calculate_average_usage(feature, only1year)
+})
+
+# Calculate average feature usage for 3-year members
+average_usage_3years <- sapply(features, function(feature) {
+  long_term_3years <- filter_members_by_duration(since_2018, 36, 60)
+  calculate_average_usage(feature, long_term_3years)
+})
+
+# Calculate average feature usage for 5-year members
+average_usage_5years <- sapply(features, function(feature) {
+  long_term_5years <- filter_members_by_duration(since_2018, 60, Inf)
+  calculate_average_usage(feature, long_term_5years)
+})
+
+# Create a data frame for plotting
+comparison_data <- data.frame(
+  Feature = features,
+  Average_Usage_1year = average_usage_1year,
+  Average_Usage_3years = average_usage_3years,
+  Average_Usage_5years = average_usage_5years
+)
+
+# Reshape data for plotting
+comparison_data_long <- pivot_longer(comparison_data, 
+                                     cols = c(Average_Usage_1year, Average_Usage_3years, Average_Usage_5years),
+                                     names_to = "Membership_Years", 
+                                     values_to = "Average_Usage")
+
+# Plot
+ggplot(comparison_data_long, aes(x = Feature, y = Average_Usage, fill = Membership_Years)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Comparison of Membership Duration based on Average Feature Usage",
+       x = "Feature", y = "Average Usage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+################################################################################
+# Function to calculate the average yearly usage of a feature for a given dataset
+calculate_average_yearly_usage <- function(feature, dataset) {
+  sum(dataset[[feature]], na.rm = TRUE) / (n_distinct(dataset$Company) * max(dataset$Paid_Through_Months - dataset$Join_Date_Months) / 12)
+}
+
+# Function to filter members by membership duration (in months)
+filter_members_by_duration <- function(dataset, min_duration, max_duration) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > min_duration & 
+           Paid_Through_Months - Join_Date_Months <= max_duration)
+}
+
+# Function to filter 1-year members
+filter_1year_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 0 & 
+           Paid_Through_Months - Join_Date_Months <= 12)
+}
+
+# Function to filter 2-year members
+filter_2year_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 12 & 
+           Paid_Through_Months - Join_Date_Months <= 24)
+}
+
+# Function to filter 3-year members
+filter_3year_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 24 & 
+           Paid_Through_Months - Join_Date_Months <= 36)
+}
+
+# Function to filter 4-year members
+filter_4year_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 36 & 
+           Paid_Through_Months - Join_Date_Months <= 48)
+}
+
+# Function to filter >5-year members
+filter_5plusyear_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 48)
+}
+
+# Calculate average yearly feature usage for 1-year members
+average_yearly_usage_1year <- sapply(features, function(feature) {
+  calculate_average_yearly_usage(feature, filter_1year_members(since_2018))
+})
+
+# Calculate average yearly feature usage for 2-year members
+average_yearly_usage_2years <- sapply(features, function(feature) {
+  calculate_average_yearly_usage(feature, filter_2year_members(since_2018))
+})
+
+# Calculate average yearly feature usage for 3-year members
+average_yearly_usage_3years <- sapply(features, function(feature) {
+  calculate_average_yearly_usage(feature, filter_3year_members(since_2018))
+})
+
+# Calculate average yearly feature usage for 4-year members
+average_yearly_usage_4years <- sapply(features, function(feature) {
+  calculate_average_yearly_usage(feature, filter_4year_members(since_2018))
+})
+
+# Calculate average yearly feature usage for >5-year members
+average_yearly_usage_5plusyears <- sapply(features, function(feature) {
+  calculate_average_yearly_usage(feature, filter_5plusyear_members(since_2018))
+})
+
+# Create a data frame for plotting
+comparison_data_yearly <- data.frame(
+  Feature = features,
+  Average_Yearly_Usage_1year = average_yearly_usage_1year,
+  Average_Yearly_Usage_2years = average_yearly_usage_2years,
+  Average_Yearly_Usage_3years = average_yearly_usage_3years,
+  Average_Yearly_Usage_4years = average_yearly_usage_4years,
+  Average_Yearly_Usage_5plusyears = average_yearly_usage_5plusyears
+)
+
+# Reshape data for plotting
+comparison_data_yearly_long <- pivot_longer(comparison_data_yearly, 
+                                            cols = c(Average_Yearly_Usage_1year, 
+                                                     Average_Yearly_Usage_2years,
+                                                     Average_Yearly_Usage_3years,
+                                                     Average_Yearly_Usage_4years,
+                                                     Average_Yearly_Usage_5plusyears),
+                                            names_to = "Membership_Years", 
+                                            values_to = "Average_Yearly_Usage")
+
+# Recode Membership_Years to create desired groups for the legend
+comparison_data_yearly_long$Membership_Years <- factor(
+  comparison_data_yearly_long$Membership_Years,
+  levels = c("Average_Yearly_Usage_1year", "Average_Yearly_Usage_2years",
+             "Average_Yearly_Usage_3years", "Average_Yearly_Usage_4years",
+             "Average_Yearly_Usage_5plusyears"),
+  labels = c("1 year", "2 years", "3 years", "4 years", ">5 years")
+)
+
+# Plot
+ggplot(comparison_data_yearly_long, aes(x = Feature, y = Average_Yearly_Usage, fill = Membership_Years)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Yearly Usage of Features per Membership Duration",
+       x = "Feature", y = "Average Yearly Usage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("1 year" = "blue", 
+                                "2 years" = "green",
+                                "3 years" = "orange",
+                                "4 years" = "purple",
+                                ">5 years" = "red"),
+                    name = "Membership Duration")
+# Function to calculate the standard error of the mean (SEM)
+calculate_sem <- function(feature, dataset) {
+  sd_feature <- sd(dataset[[feature]], na.rm = TRUE)
+  n_companies <- n_distinct(dataset$Company)
+  sem <- sd_feature / sqrt(n_companies)
+  return(sem)
+}
+
+# Calculate SEM for each feature and membership duration group
+sem_data <- lapply(features, function(feature) {
+  sem_1year <- calculate_sem(feature, filter_1year_members(since_2018))
+  sem_2years <- calculate_sem(feature, filter_2year_members(since_2018))
+  sem_3years <- calculate_sem(feature, filter_3year_members(since_2018))
+  sem_4years <- calculate_sem(feature, filter_4year_members(since_2018))
+  sem_5plusyears <- calculate_sem(feature, filter_5plusyear_members(since_2018))
+  return(data.frame(
+    Feature = feature,
+    Membership_Years = c("1 year", "2 years", "3 years", "4 years", ">5 years"),
+    SEM = c(sem_1year, sem_2years, sem_3years, sem_4years, sem_5plusyears)
+  ))
+})
+
+# Combine SEM data into a data frame
+sem_df <- do.call(rbind, sem_data)
+
+# Merge SEM data with comparison_data_yearly_long
+comparison_data_yearly_long <- merge(comparison_data_yearly_long, sem_df, by = c("Feature", "Membership_Years"))
+
+# Calculate lower and upper bounds of 95% CI
+comparison_data_yearly_long$Lower_CI <- comparison_data_yearly_long$Average_Yearly_Usage - 1.96 * comparison_data_yearly_long$SEM
+comparison_data_yearly_long$Upper_CI <- comparison_data_yearly_long$Average_Yearly_Usage + 1.96 * comparison_data_yearly_long$SEM
+
+# Plot with error bars representing 95% CI and minimal theme
+ggplot(comparison_data_yearly_long, aes(x = Feature, y = Average_Yearly_Usage, fill = Membership_Years)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = Lower_CI, ymax = Upper_CI), position = position_dodge(width = 0.9), width = 0.25) +
+  labs(title = "Average Yearly Usage of Features per Membership Duration",
+       x = "Feature", y = "Average Yearly Usage") +
+  theme_minimal() +  # Set theme to minimal
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels
+  scale_fill_manual(values = c("1 year" = "lightblue", 
+                                "2 years" = "green",
+                                "3 years" = "orange",
+                                "4 years" = "purple",
+                                ">5 years" = "red"),
+                    name = "Membership Duration")
+
+
+
+```
+
+```{r}
+# Function to calculate the average yearly usage of a feature for a given dataset
+calculate_average_yearly_usage <- function(feature, dataset) {
+  sum(dataset[[feature]], na.rm = TRUE) / (n_distinct(dataset$Company) * max(dataset$Paid_Through_Months - dataset$Join_Date_Months) / 12)
+}
+
+# Function to filter members by membership duration (in months)
+filter_members_by_duration <- function(dataset, min_duration, max_duration) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > min_duration & 
+           Paid_Through_Months - Join_Date_Months <= max_duration)
+}
+
+# Function to filter 1-year members
+filter_1year_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 0 & 
+           Paid_Through_Months - Join_Date_Months <= 12)
+}
+
+# Function to filter 2-year members
+filter_2year_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 12 & 
+           Paid_Through_Months - Join_Date_Months <= 24)
+}
+
+# Function to filter 3-year members
+filter_3year_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 24 & 
+           Paid_Through_Months - Join_Date_Months <= 36)
+}
+
+# Function to filter 4-year members
+filter_4year_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 36 & 
+           Paid_Through_Months - Join_Date_Months <= 48)
+}
+
+# Function to filter >5-year members
+filter_5plusyear_members <- function(dataset) {
+  dataset %>%
+    filter(Paid_Through_Months - Join_Date_Months > 48)
+}
+
+# Calculate average yearly feature usage for 1-year members
+average_yearly_usage_1year <- sapply(features[!features %in% "Event_Participation"], function(feature) {
+  calculate_average_yearly_usage(feature, filter_1year_members(since_2018))
+})
+
+# Calculate average yearly feature usage for 2-year members
+average_yearly_usage_2years <- sapply(features[!features %in% "Event_Participation"], function(feature) {
+  calculate_average_yearly_usage(feature, filter_2year_members(since_2018))
+})
+
+# Calculate average yearly feature usage for 3-year members
+average_yearly_usage_3years <- sapply(features[!features %in% "Event_Participation"], function(feature) {
+  calculate_average_yearly_usage(feature, filter_3year_members(since_2018))
+})
+
+# Calculate average yearly feature usage for 4-year members
+average_yearly_usage_4years <- sapply(features[!features %in% "Event_Participation"], function(feature) {
+  calculate_average_yearly_usage(feature, filter_4year_members(since_2018))
+})
+
+# Calculate average yearly feature usage for >5-year members
+average_yearly_usage_5plusyears <- sapply(features[!features %in% "Event_Participation"], function(feature) {
+  calculate_average_yearly_usage(feature, filter_5plusyear_members(since_2018))
+})
+
+# Create a data frame for plotting
+comparison_data_yearly <- data.frame(
+  Feature = features[!features %in% "Event_Participation"],
+  Average_Yearly_Usage_1year = average_yearly_usage_1year,
+  Average_Yearly_Usage_2years = average_yearly_usage_2years,
+  Average_Yearly_Usage_3years = average_yearly_usage_3years,
+  Average_Yearly_Usage_4years = average_yearly_usage_4years,
+  Average_Yearly_Usage_5plusyears = average_yearly_usage_5plusyears
+)
+
+# Reshape data for plotting
+comparison_data_yearly_long <- pivot_longer(comparison_data_yearly, 
+                                            cols = c(Average_Yearly_Usage_1year, 
+                                                     Average_Yearly_Usage_2years,
+                                                     Average_Yearly_Usage_3years,
+                                                     Average_Yearly_Usage_4years,
+                                                     Average_Yearly_Usage_5plusyears),
+                                            names_to = "Membership_Years", 
+                                            values_to = "Average_Yearly_Usage")
+
+# Recode Membership_Years to create desired groups for the legend
+comparison_data_yearly_long$Membership_Years <- factor(
+  comparison_data_yearly_long$Membership_Years,
+  levels = c("Average_Yearly_Usage_1year", "Average_Yearly_Usage_2years",
+             "Average_Yearly_Usage_3years", "Average_Yearly_Usage_4years",
+             "Average_Yearly_Usage_5plusyears"),
+  labels = c("1 year", "2 years", "3 years", "4 years", ">5 years")
+)
+
+# Plot
+ggplot(comparison_data_yearly_long, aes(x = Feature, y = Average_Yearly_Usage, fill = Membership_Years)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Yearly Usage of Features per Membership Duration",
+       x = "Feature", y = "Average Yearly Usage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("1 year" = "blue", 
+                                "2 years" = "green",
+                                "3 years" = "orange",
+                                "4 years" = "purple",
+                                ">5 years" = "red"),
+                    name = "Membership Duration")
+
+# Function to calculate the standard error of the mean (SEM)
+calculate_sem <- function(feature, dataset) {
+  sd_feature <- sd(dataset[[feature]], na.rm = TRUE)
+  n_companies <- n_distinct(dataset$Company)
+  sem <- sd_feature / sqrt(n_companies)
+  return(sem)
+}
+
+# Calculate SEM for each feature and membership duration group
+sem_data <- lapply(features[!features %in% "Event_Participation"], function(feature) {
+  sem_1year <- calculate_sem(feature, filter_1year_members(since_2018))
+  sem_2years <- calculate_sem(feature, filter_2year_members(since_2018))
+  sem_3years <- calculate_sem(feature, filter_3year_members(since_2018))
+  sem_4years <- calculate_sem(feature, filter_4year_members(since_2018))
+  sem_5plusyears <- calculate_sem(feature, filter_5plusyear_members(since_2018))
+  return(data.frame(
+    Feature = feature,
+    Membership_Years = c("1 year", "2 years", "3 years", "4 years", ">5 years"),
+    SEM = c(sem_1year, sem_2years, sem_3years, sem_4years, sem_5plusyears)
+  ))
+})
+
+# Combine SEM data into a data frame
+sem_df <- do.call(rbind, sem_data)
+
+# Merge SEM data with comparison_data_yearly_long
+comparison_data_yearly_long <- merge(comparison_data_yearly_long, sem_df, by = c("Feature", "Membership_Years"))
+
+# Calculate lower and upper bounds of 95% CI
+comparison_data_yearly_long$Lower_CI <- comparison_data_yearly_long$Average_Yearly_Usage - 1.96 * comparison_data_yearly_long$SEM
+comparison_data_yearly_long$Upper_CI <- comparison_data_yearly_long$Average_Yearly_Usage + 1.96 * comparison_data_yearly_long$SEM
+
+# Plot with error bars representing 95% CI and minimal theme
+ggplot(comparison_data_yearly_long, aes(x = Feature, y = Average_Yearly_Usage, fill = Membership_Years)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = Lower_CI, ymax = Upper_CI), position = position_dodge(width = 0.9), width = 0.25) +
+  labs(title = "Average Yearly Usage of Features per Membership Duration",
+       x = "Feature", y = "Average Yearly Usage") +
+  theme_minimal() +  # Set theme to minimal
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels
+  scale_fill_manual(values = c("1 year" = "lightblue", 
+                                "2 years" = "green",
+                                "3 years" = "orange",
+                                "4 years" = "purple",
+                                ">5 years" = "red"),
+                    name = "Membership Duration")
+
+```
+
